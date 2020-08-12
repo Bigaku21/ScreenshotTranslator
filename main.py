@@ -3,12 +3,13 @@
 import io
 import os
 import sys
+import tkinter as tk
 
-import pyperclip
 import pytesseract
 from PIL import Image
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
+from googletrans import Translator
 
 try:
     from pynotifier import Notification
@@ -20,7 +21,7 @@ class Snipper(QtWidgets.QWidget):
     def __init__(self, parent=None, flags=Qt.WindowFlags()):
         super().__init__(parent=parent, flags=flags)
 
-        self.setWindowTitle("TextShot")
+        self.setWindowTitle("Translate picture")
         self.setWindowFlags(
             Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Dialog
         )
@@ -85,44 +86,32 @@ def processImage(img):
 
     try:
         result = pytesseract.image_to_string(
-            pil_img, timeout=5, lang=(sys.argv[1] if len(sys.argv) > 1 else None)
+            pil_img, timeout=5, lang='dan'
         )
     except RuntimeError as error:
         print(f"ERROR: An error occurred when trying to process the image: {error}")
-        notify(f"An error occurred when trying to process the image: {error}")
         return
-
     if result:
-        pyperclip.copy(result)
-        print(f'INFO: Copied "{result}" to the clipboard')
-        notify(f'Copied "{result}" to the clipboard')
+        translated_result = translate(result, 'en')
+        output_message(f'Translation is: {translated_result}')
     else:
-        print(f"INFO: Unable to read text from image, did not copy")
-        notify(f"Unable to read text from image, did not copy")
+        output_message('Unable to read text from image, did not copy')
 
+def translate(message, dest_lang):
+    translator = Translator()
+    return (translator.translate(message, dest=dest_lang)).text
 
-def notify(msg):
-    try:
-        Notification(title="TextShot", description=msg).send()
-    except (SystemError, NameError):
-        trayicon = QtWidgets.QSystemTrayIcon(
-            QtGui.QIcon(
-                QtGui.QPixmap.fromImage(QtGui.QImage(1, 1, QtGui.QImage.Format_Mono))
-            )
-        )
-        trayicon.show()
-        trayicon.showMessage("TextShot", msg, QtWidgets.QSystemTrayIcon.NoIcon)
-        trayicon.hide()
-
+def output_message(message):
+    root = tk.Tk()
+    T = tk.Text(root)
+    T.pack()
+    T.insert(tk.END, f'{message}')
+    tk.mainloop()
 
 if __name__ == "__main__":
     try:
         pytesseract.get_tesseract_version()
     except EnvironmentError:
-        notify(
-            "Tesseract is either not installed or cannot be reached.\n"
-            "Have you installed it and added the install directory to your system path?"
-        )
         print(
             "ERROR: Tesseract is either not installed or cannot be reached.\n"
             "Have you installed it and added the install directory to your system path?"
